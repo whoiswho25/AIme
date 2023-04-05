@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Speech to Text and GPT Answer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #202124;
+      color: #e8eaed;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 24px;
+    }
+
+    button {
+      background-color: #3c4043;
+      color: #e8eaed;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #5f6368;
+    }
+
+    #question, #answer {
+      margin-top: 20px;
+      font-size: 18px;
+    }
+	 input[type="text"] {
+      font-size: 18px;
+      width: 100%;
+      max-width: 600px;
+      display: block;
+    }
+
+    .input-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #submit {
+      margin-top: 10px;
+    }
+  </style>
+ </head>
+<body>
+  <h1>Ask a question</h1>
+  <div>
+    <button id="start">Start Listening</button>
+    <button id="stop">Stop Listening</button>
+  </div>
+  <div class="input-container">
+    <input type="text" id="typedQuestion" placeholder="Type your question here" maxlength="100" size="50">
+    <button id="submit">Submit</button>
+  </div>
+  <div id="question"></div>
+  <div id="answer"></div>
+
+  <script>
+    const startButton = document.getElementById('start');
+    const stopButton = document.getElementById('stop');
+    const submitButton = document.getElementById('submit');
+    const typedQuestionInput = document.getElementById('typedQuestion');
+    const questionDiv = document.getElementById('question');
+    const answerDiv = document.getElementById('answer');
+
+    const apiKey = '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'; // Replace with your API key
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event) => {
+      const question = event.results[0][0].transcript;
+      questionDiv.innerHTML = `Question: ${question}`;
+    };
+
+    function processQuestion(questionText) {
+      getAnswerFromGPT(questionText)
+        .then((answer) => {
+          answerDiv.innerHTML = `Answer: ${answer}`;
+          speak(answer);
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    }
+    function getAnswerFromGPT(question) {
+      const requestOptions = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({ 'prompt': question, 'max_tokens': 200 })
+      };
+
+      return fetch('https://api.openai.com/v1/engines/text-davinci-003/completions', requestOptions)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('API request failed: ' + response.status);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('API response:', data);
+          return data.choices[0].text;
+        })
+        .catch(error => console.error(error));
+    }
+
+    function speak(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      window.speechSynthesis.speak(utterance);
+    }
+
+    startButton.addEventListener('click', () => recognition.start());
+    stopButton.addEventListener('click', () => {
+      recognition.stop();
+      const question = questionDiv.innerText.replace('Question: ', '');
+      processQuestion(question);
+    });
+
+    submitButton.addEventListener('click', () => {
+      const questionText = typedQuestionInput.value;
+      questionDiv.innerHTML = `Question: ${questionText}`;
+      processQuestion(questionText);
+    });
+	typedQuestionInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const questionText = typedQuestionInput.value;
+      questionDiv.innerHTML = `Question: ${questionText}`;
+      processQuestion(questionText);
+    }
+  });
+  </script>
+</body>
+</html>
